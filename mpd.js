@@ -977,7 +977,7 @@ function MPD(_port, _host, _password){
      */
     function sendString(str){
         log('sending: "'+str+'"');
-        _private.socket.send_string(str);
+        _private.socket.send(str);
     }
 
 
@@ -988,17 +988,17 @@ function MPD(_port, _host, _password){
      */
     function init(){
       var websocket_url = getAppropriateWsUrl();
-      var websocket = new Websock();
-      websocket.open(websocket_url);
+      var websocket = new WebSocket(websocket_url, 'binary');
+      websocket.binaryType = 'arraybuffer';
 
       //these can throw
-      websocket.on('open',onConnect);
+      websocket.onopen = onConnect;
 
-      websocket.on('message', function(){
+      websocket.onmessage = function(){
           _private.responceProcessor.apply(this,arguments);
-      });
+      };
 
-      websocket.on('close',onDisconnect);
+      websocket.onclose = onDisconnect;
 
       _private.socket = websocket;
     }
@@ -1301,10 +1301,22 @@ function MPD(_port, _host, _password){
 
 
     /**
+     *parse an ArrayBuffer as an UTF-8 string
+     */
+    function arrayBufferToUtf8String(arr){
+        arr = new Uint8Array(arr);
+        var i, str = '';
+        for (i = 0; i < arr.length; i++)
+            str += '%' + ('0' + arr[i].toString(16)).slice(-2);
+        return decodeURIComponent(str);
+    }
+
+
+    /**
      *fetch outstanding lines from MPD
      */
-    function getRawLines(){
-        _private.raw_buffer += _private.socket.rQshiftUtf8Str();//get the raw string
+    function getRawLines(data){
+        _private.raw_buffer += arrayBufferToUtf8String(data);//get the raw string
 
         var lines = _private.raw_buffer.split('\n');//split that into lines
 
@@ -1327,8 +1339,8 @@ function MPD(_port, _host, _password){
      * might be multiple messages
      * @private
      */
-    function onRawData(){
-        var lines = getRawLines();
+    function onRawData(evt){
+        var lines = getRawLines(evt.data);
         //keep processing untill we can't process any more
         var command_processor = null;
         var old_lines;//this is infinite loop prevention, should never actually happen
@@ -1374,8 +1386,8 @@ function MPD(_port, _host, _password){
      * this handles raw data because when we first connect the protocol is comepletely different than at any other point
      * @private
      */
-    function handleConnectionMessage(){
-        var lines = getRawLines();
+    function handleConnectionMessage(evt){
+        var lines = getRawLines(evt.data);
 
         if(lines.length < 1){
             return;
