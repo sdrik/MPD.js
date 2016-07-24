@@ -1304,7 +1304,7 @@ function MPD(_port, _host, _password){
      *fetch outstanding lines from MPD
      */
     function getRawLines(){
-        _private.raw_buffer += _private.socket.rQshiftStr();//get the raw string
+        _private.raw_buffer += _private.socket.rQshiftUtf8Str();//get the raw string
 
         var lines = _private.raw_buffer.split('\n');//split that into lines
 
